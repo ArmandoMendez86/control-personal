@@ -1,0 +1,100 @@
+/* Google Font */
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Transiciones para la interfaz */
+.sidebar {
+    transition: transform 0.3s ease-in-out;
+}
+.main-content {
+    transition: margin-left 0.3s ease-in-out;
+}
+
+/* Animación de carga */
+.loader {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Clases para mostrar/ocultar vistas */
+.view {
+    display: none;
+}
+.view.active {
+    display: block;
+}
+
+/* Estilos para inputs deshabilitados */
+.report-input:disabled {
+    background-color: #f3f4f6;
+    cursor: not-allowed;
+}
+
+/* Efectos para tarjetas del Kiosko */
+.kiosk-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.kiosk-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Estilos para los puntos del PIN */
+.pin-dot {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid #9ca3af;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+.pin-dot.filled {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* Efecto para los botones del teclado numérico */
+.keypad-btn {
+    transition: background-color 0.2s;
+}
+.keypad-btn:active {
+    background-color: #d1d5db;
+}
+
+/* Animación para error de PIN */
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+.animate-shake {
+  animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+/* ===== NUEVO: ESTILOS PARA LA BARRA DE SCROLL ===== */
+/* Funciona en Chrome, Edge, y Safari */
+.main-content main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.main-content main::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.main-content main::-webkit-scrollbar-thumb {
+  background: #a8a8a8;
+  border-radius: 4px;
+}
+
+.main-content main::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
