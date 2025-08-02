@@ -7,10 +7,16 @@ import { openModal, closeModal } from '../ui.js';
  * Inicializa la vista de conceptos, configurando listeners.
  */
 export function initConceptsView() {
-    document.getElementById('btn-nuevo-concepto').addEventListener('click', () => openConceptoModal());
-    document.getElementById('form-concepto').addEventListener('submit', handleSaveConcepto);
+    const newConceptBtn = document.getElementById('btn-nuevo-concepto');
+    if (newConceptBtn) {
+        newConceptBtn.addEventListener('click', () => openConceptoModal());
+    }
 
-    // Cargar la tabla cuando se navega a la vista
+    const conceptForm = document.getElementById('form-concepto');
+    if (conceptForm) {
+        conceptForm.addEventListener('submit', handleSaveConcepto);
+    }
+
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'class' && mutation.target.classList.contains('active')) {
@@ -18,13 +24,12 @@ export function initConceptsView() {
             }
         });
     });
-    observer.observe(document.getElementById('conceptos'), { attributes: true });
+    const conceptsView = document.getElementById('conceptos');
+    if (conceptsView) {
+        observer.observe(conceptsView, { attributes: true });
+    }
 }
 
-/**
- * Abre el modal para crear o editar un concepto.
- * @param {object|null} concepto - El objeto concepto para editar, o null para crear uno nuevo.
- */
 function openConceptoModal(concepto = null) {
     const form = document.getElementById('form-concepto');
     form.reset();
@@ -40,10 +45,6 @@ function openConceptoModal(concepto = null) {
     openModal('concepto-modal');
 };
 
-/**
- * Maneja el guardado de un concepto desde el formulario del modal.
- * @param {Event} e - El evento de submit del formulario.
- */
 async function handleSaveConcepto(e) {
     e.preventDefault();
     const id = parseInt(document.getElementById('concepto-id').value);
@@ -66,9 +67,6 @@ async function handleSaveConcepto(e) {
     }
 };
 
-/**
- * Carga y renderiza la tabla de conceptos.
- */
 async function loadConceptosTable() {
     try {
         const conceptos = await dbAction('conceptos', 'readonly', 'getAll');

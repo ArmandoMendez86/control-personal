@@ -1,8 +1,8 @@
 // js/database.js
 
 const DB_NAME = 'NominaDB_PIN_Final';
-const DB_VERSION = 1;
-export let db; // <--- CAMBIO: Se añade "export"
+const DB_VERSION = 2; // Versión estable con UUIDs
+export let db;
 
 /**
  * Inicializa la conexión con la base de datos IndexedDB.
@@ -21,9 +21,18 @@ export function initDB() {
 
         request.onupgradeneeded = e => {
             const db = e.target.result;
+            const transaction = e.target.transaction;
+
             if (!db.objectStoreNames.contains('empleados')) {
-                db.createObjectStore('empleados', { keyPath: 'id', autoIncrement: true });
+                const store = db.createObjectStore('empleados', { keyPath: 'id', autoIncrement: true });
+                store.createIndex('uuid', 'uuid', { unique: true });
+            } else {
+                const store = transaction.objectStore('empleados');
+                if (!store.indexNames.contains('uuid')) {
+                    store.createIndex('uuid', 'uuid', { unique: true });
+                }
             }
+
             if (!db.objectStoreNames.contains('registrosAsistencia')) {
                 const store = db.createObjectStore('registrosAsistencia', { keyPath: 'id', autoIncrement: true });
                 store.createIndex('empleado_fecha', ['empleadoId', 'fecha'], { unique: false });

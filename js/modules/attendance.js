@@ -1,5 +1,5 @@
 // js/modules/attendance.js
-import { db, dbAction } from '../database.js'; // <--- CAMBIO: Se importa "db"
+import { db, dbAction } from '../database.js';
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
 import { openModal, closeModal } from '../ui.js';
 
@@ -7,10 +7,16 @@ import { openModal, closeModal } from '../ui.js';
  * Inicializa la vista de asistencias, configurando listeners.
  */
 export function initAttendanceView() {
-    document.getElementById('btn-buscar-asistencias').addEventListener('click', loadAsistenciasTable);
-    document.getElementById('form-asistencia').addEventListener('submit', handleSaveAsistencia);
+    const searchBtn = document.getElementById('btn-buscar-asistencias');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', loadAsistenciasTable);
+    }
 
-    // Cargar la vista cuando se navega a ella
+    const attendanceForm = document.getElementById('form-asistencia');
+    if (attendanceForm) {
+        attendanceForm.addEventListener('submit', handleSaveAsistencia);
+    }
+
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'class' && mutation.target.classList.contains('active')) {
@@ -18,23 +24,18 @@ export function initAttendanceView() {
             }
         });
     });
-    observer.observe(document.getElementById('asistencias'), { attributes: true });
+    const attendanceView = document.getElementById('asistencias');
+    if (attendanceView) {
+        observer.observe(attendanceView, { attributes: true });
+    }
 }
 
-/**
- * Carga el estado inicial de la vista de asistencias (filtros y tabla).
- */
 function loadInitialAttendanceView() {
     document.getElementById('filtro-fecha-asistencia').value = getTodayDateString();
     loadEmpleadosIntoSelect('filtro-empleado-asistencia', 'Todos los empleados');
     loadAsistenciasTable();
 };
 
-/**
- * Abre el modal para editar un registro de asistencia.
- * @param {object} asistencia - El objeto de asistencia.
- * @param {string} nombre - El nombre del empleado.
- */
 function openAsistenciaModal(asistencia, nombre) {
     document.getElementById('modal-title-asistencia').textContent = `Editar Asistencia de ${nombre}`;
     document.getElementById('asistencia-id').value = asistencia.id;
@@ -46,10 +47,6 @@ function openAsistenciaModal(asistencia, nombre) {
     openModal('asistencia-modal');
 };
 
-/**
- * Maneja el guardado de un registro de asistencia editado.
- * @param {Event} e - El evento de submit del formulario.
- */
 async function handleSaveAsistencia(e) {
     e.preventDefault();
     const id = parseInt(document.getElementById('asistencia-id').value);
@@ -75,21 +72,17 @@ async function handleSaveAsistencia(e) {
     }
 };
 
-/**
- * Carga y renderiza la tabla de asistencias según los filtros seleccionados.
- */
 async function loadAsistenciasTable() {
     try {
         const fecha = document.getElementById('filtro-fecha-asistencia').value;
         const empleadoId = parseInt(document.getElementById('filtro-empleado-asistencia').value);
         
-        const tx = db.transaction(['registrosAsistencia', 'empleados'], 'readonly'); // Esto ahora funcionará
+        const tx = db.transaction(['registrosAsistencia', 'empleados'], 'readonly');
         const asistenciaStore = tx.objectStore('registrosAsistencia');
         const empleados = await new Promise(r => tx.objectStore('empleados').getAll().onsuccess = e => r(e.target.result));
         const empleadosMap = new Map(empleados.map(e => [e.id, e.nombreCompleto]));
 
         let asistencias;
-        // Lógica de filtrado
         if (fecha) {
             asistencias = await new Promise(r => asistenciaStore.index('fecha').getAll(fecha).onsuccess = e => r(e.target.result));
             if (empleadoId) {

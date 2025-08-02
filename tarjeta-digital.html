@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarjeta Digital de Asistencia</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilo para que el código de barras sea responsivo */
+        #barcode-container svg {
+            width: 100%;
+            height: auto;
+        }
+        /* Asegura que el layout ocupe toda la altura en móviles */
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Evita el scroll en la vista de tarjeta */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center">
+
+    <div id="loading-view" class="text-center p-4">
+        <p class="text-lg text-gray-600">Cargando tarjeta...</p>
+    </div>
+
+    <!-- Layout adaptado para móvil y escritorio -->
+    <div id="card-view" class="bg-white w-full h-full sm:h-auto sm:max-w-sm sm:rounded-2xl sm:shadow-2xl flex flex-col justify-center items-center p-8 text-center hidden">
+        
+        <div class="w-24 h-24 rounded-full bg-blue-500 text-white flex items-center justify-center mx-auto mb-4">
+            <span id="user-initial" class="text-5xl font-bold"></span>
+        </div>
+        <h1 id="employee-name" class="text-2xl font-bold text-gray-800"></h1>
+        <p class="text-gray-500 mb-6">Presenta este código en el kiosko</p>
+        
+        <!-- Contenedor del código de barras -->
+        <div id="barcode-container" class="p-2 bg-white rounded-lg w-full max-w-xs mx-auto">
+            <svg id="barcode"></svg>
+        </div>
+
+        <div id="error-view" class="text-red-500 mt-4 hidden"></div>
+
+        <div class="mt-6 text-sm text-gray-500">
+            <p>Este código se actualizará automáticamente en:</p>
+            <p id="countdown" class="text-lg font-bold text-blue-600">--:--</p>
+        </div>
+    </div>
+
+    <!-- Librería para generar códigos de barras -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- Script de la lógica de la tarjeta -->
+    <script type="module" src="js/tarjeta-digital.js"></script>
+</body>
+</html>

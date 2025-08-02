@@ -1,5 +1,5 @@
 // js/modules/dashboard.js
-import { db, dbAction } from '../database.js'; // <--- CAMBIO: Se importa "db"
+import { db, dbAction } from '../database.js';
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
 
 /**
@@ -17,7 +17,7 @@ export async function updateDashboard() {
 async function updateKPIs() {
     try {
         const todayStr = getTodayDateString();
-        const tx = db.transaction(['empleados', 'registrosAsistencia'], 'readonly'); // Esto ahora funcionará
+        const tx = db.transaction(['empleados', 'registrosAsistencia'], 'readonly');
         const empleados = await new Promise(r => tx.objectStore('empleados').getAll().onsuccess = e => r(e.target.result));
         const asistenciasHoy = await new Promise(r => tx.objectStore('registrosAsistencia').index('fecha').getAll(todayStr).onsuccess = e => r(e.target.result));
 
@@ -103,7 +103,7 @@ async function handleAdminCheckInOut(isCheckIn) {
     statusDiv.innerHTML = '';
 
     try {
-        const transaction = db.transaction(['registrosAsistencia'], 'readwrite'); // Esto ahora funcionará
+        const transaction = db.transaction(['registrosAsistencia'], 'readwrite');
         const store = transaction.objectStore('registrosAsistencia');
         const index = store.index('empleado_fecha');
         const request = index.getAll([empleadoId, todayStr]);

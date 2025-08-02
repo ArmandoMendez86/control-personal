@@ -10,8 +10,8 @@ export function renderLayout() {
             <div class="w-full max-w-4xl text-center">
                 <h1 class="text-6xl font-bold text-gray-800" id="kiosk-clock"></h1>
                 <p class="text-2xl text-gray-500" id="kiosk-date"></p>
-                <div id="kiosk-main-content" class="mt-10">
-                    <!-- El contenido dinámico del kiosko se inserta aquí -->
+                <div id="kiosk-main-content" class="mt-10 bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl mx-auto">
+                    <!-- El contenido dinámico del kiosko (scanner/acciones) se inserta aquí -->
                 </div>
             </div>
             <button id="btn-admin-login" class="absolute bottom-4 right-4 bg-gray-700 text-white px-3 py-2 rounded-md text-sm hover:bg-gray-800">
@@ -20,7 +20,6 @@ export function renderLayout() {
         </div>`;
 
     // Admin View HTML
-    // Se reestructura para usar un contenedor con padding en lugar de margen
     document.getElementById('admin-view').innerHTML = `
         <div class="h-screen w-full md:p-8">
             <div class="flex h-full w-full max-w-screen-2xl mx-auto rounded-none md:rounded-2xl shadow-none md:shadow-2xl overflow-hidden">
@@ -47,8 +46,10 @@ export function renderLayout() {
                 <div class="main-content flex-1 flex flex-col overflow-hidden bg-white">
                     <header class="flex justify-between items-center p-4 border-b-2 border-gray-100">
                         <div class="flex items-center">
-                            <button id="menu-button" class="text-gray-500 focus:outline-none md:hidden"><i class="fas fa-bars text-2xl"></i></button>
-                            <h1 id="view-title" class="text-2xl font-bold text-gray-800 ml-4"></h1>
+                            <button id="menu-button" class="text-gray-500 focus:outline-none md:hidden mr-4">
+                                <i class="fas fa-bars text-2xl"></i>
+                            </button>
+                            <h1 id="view-title" class="text-2xl font-bold text-gray-800"></h1>
                         </div>
                     </header>
                     <main class="flex-1 overflow-y-auto bg-gray-50 p-6 min-h-0">
@@ -62,9 +63,7 @@ export function renderLayout() {
             </div>
         </div>`;
     
-    // Renderiza el contenido inicial de cada vista del admin
     renderAdminViewsContent();
-    // Renderiza los modales
     renderModals();
 }
 
@@ -72,8 +71,6 @@ export function renderLayout() {
  * Renderiza el contenido HTML inicial de las vistas de administrador.
  */
 function renderAdminViewsContent() {
-    // Se mantiene el contenedor centrado para el contenido interno de cada vista
-    
     document.getElementById('dashboard').innerHTML = `
         <div class="max-w-7xl mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -110,25 +107,31 @@ function renderAdminViewsContent() {
                 <select id="filtro-empleado-asistencia" class="border-gray-300 rounded-md shadow-sm w-64"></select>
                 <button id="btn-buscar-asistencias" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Buscar</button>
             </div>
-            <div class="bg-white shadow-md rounded-lg overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
-                <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salida</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
-            </thead><tbody id="tabla-asistencias" class="bg-white divide-y divide-gray-200"></tbody></table></div>
+            <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
+                    <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salida</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
+                </thead><tbody id="tabla-asistencias" class="bg-white divide-y divide-gray-200"></tbody></table>
+            </div>
         </div>`;
 
     document.getElementById('empleados').innerHTML = `
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-end mb-4"><button id="btn-nuevo-empleado" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"><i class="fas fa-plus mr-2"></i> Nuevo Empleado</button></div>
-            <div class="bg-white shadow-md rounded-lg overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
-                <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIN</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horario</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago H. Extra</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
-            </thead><tbody id="tabla-empleados" class="bg-white divide-y divide-gray-200"></tbody></table></div>
+            <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
+                    <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horario</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago H. Extra</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
+                </thead><tbody id="tabla-empleados" class="bg-white divide-y divide-gray-200"></tbody></table>
+            </div>
         </div>`;
     
     document.getElementById('conceptos').innerHTML = `
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-end mb-4"><button id="btn-nuevo-concepto" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center"><i class="fas fa-plus mr-2"></i> Nuevo Concepto</button></div>
-            <div class="bg-white shadow-md rounded-lg overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
-                <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Fijo</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
-            </thead><tbody id="tabla-conceptos" class="bg-white divide-y divide-gray-200"></tbody></table></div>
+            <div class="bg-white shadow-md rounded-lg overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50">
+                    <tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Fijo</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th></tr>
+                </thead><tbody id="tabla-conceptos" class="bg-white divide-y divide-gray-200"></tbody></table>
+            </div>
         </div>`;
 
     document.getElementById('reportes').innerHTML = `
@@ -139,7 +142,7 @@ function renderAdminViewsContent() {
                 <button id="btn-generar-reporte" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Generar</button>
                 <button id="btn-exportar-csv" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg hidden">Exportar a CSV</button>
             </div>
-            <div id="reporte-container" class="bg-white shadow-md rounded-lg overflow-x-auto">
+            <div id="reporte-container" class="bg-white shadow-md rounded-lg">
                 <div class="p-8 text-center text-gray-500"><i class="fas fa-file-alt text-4xl mb-4"></i><p>Seleccione una semana y haga clic en "Generar" para ver el reporte de pre-nómina.</p></div>
             </div>
         </div>`;
@@ -165,7 +168,7 @@ function renderModals() {
                                 <div><label for="nombreCompleto" class="block text-sm font-medium text-gray-700">Nombre Completo</label><input type="text" id="nombreCompleto" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div><label for="sueldoSemanal" class="block text-sm font-medium text-gray-700">Sueldo Semanal ($)</label><input type="number" step="0.01" id="sueldoSemanal" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
-                                    <div><label for="pin" class="block text-sm font-medium text-gray-700">PIN de 4 dígitos</label><input type="password" id="pin" required pattern="\\d{4}" title="El PIN debe contener 4 números." maxlength="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
+                                    <div id="pin-container" class="hidden"><label for="pin" class="block text-sm font-medium text-gray-700">PIN de 4 dígitos</label><input type="password" id="pin" pattern="\\d{4}" title="El PIN debe contener 4 números." maxlength="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div><label for="horarioEntrada" class="block text-sm font-medium text-gray-700">Horario Entrada</label><input type="time" id="horarioEntrada" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3"></div>

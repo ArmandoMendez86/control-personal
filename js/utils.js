@@ -10,7 +10,8 @@ export function showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     const toastMessage = document.getElementById('toast-message');
     
-    // Asegurarse de que el toast esté visible antes de cambiar clases
+    if (!toast || !toastMessage) return;
+
     toast.classList.remove('opacity-0');
 
     const colors = {
@@ -20,14 +21,11 @@ export function showToast(message, type = 'info') {
         info: 'bg-gray-800'
     };
     
-    // Resetear clases de color
     Object.values(colors).forEach(colorClass => toast.classList.remove(colorClass));
     
-    // Añadir la clase de color correcta
     toast.classList.add(colors[type]);
     toastMessage.textContent = message;
 
-    // Ocultar el toast después de 3 segundos
     setTimeout(() => {
         toast.classList.add('opacity-0');
     }, 3000);
