@@ -1,16 +1,19 @@
 <?php
-class EmpleadoModel {
+class EmpleadoModel
+{
     private $conn;
     private $table = 'empleados';
 
-    public function __construct($db) {
+    public function __construct($db)
+    {
         $this->conn = $db;
     }
 
     /**
      * Obtiene todos los empleados.
      */
-    public function getAll() {
+    public function getAll()
+    {
         $query = 'SELECT * FROM ' . $this->table . ' ORDER BY nombre_completo ASC';
         $stmt = $this->conn->prepare($query);
         $stmt->execute();
@@ -20,7 +23,8 @@ class EmpleadoModel {
     /**
      * Obtiene un solo empleado por su ID.
      */
-    public function getById($id) {
+    public function getById($id)
+    {
         $query = 'SELECT * FROM ' . $this->table . ' WHERE id = :id LIMIT 1';
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
@@ -31,9 +35,10 @@ class EmpleadoModel {
     /**
      * Crea un nuevo empleado.
      */
-    public function create($data) {
+    public function create($data)
+    {
         $query = 'INSERT INTO ' . $this->table . ' (nombre_completo, sueldo_semanal, pin, horario_entrada, horario_salida, dias_laborales, pago_por_hora_extra, uuid) VALUES (:nombre_completo, :sueldo_semanal, :pin, :horario_entrada, :horario_salida, :dias_laborales, :pago_por_hora_extra, gen_random_uuid())';
-        
+
         $stmt = $this->conn->prepare($query);
 
         // Limpiar datos
@@ -49,7 +54,7 @@ class EmpleadoModel {
         $stmt->bindParam(':dias_laborales', $data->dias_laborales);
         $stmt->bindParam(':pago_por_hora_extra', $data->pago_por_hora_extra);
 
-        if($stmt->execute()) {
+        if ($stmt->execute()) {
             return true;
         }
         printf("Error: %s.\n", $stmt->error);
@@ -59,9 +64,10 @@ class EmpleadoModel {
     /**
      * Actualiza un empleado existente.
      */
-    public function update($id, $data) {
+    public function update($id, $data)
+    {
         $query = 'UPDATE ' . $this->table . ' SET nombre_completo = :nombre_completo, sueldo_semanal = :sueldo_semanal, horario_entrada = :horario_entrada, horario_salida = :horario_salida, dias_laborales = :dias_laborales, pago_por_hora_extra = :pago_por_hora_extra WHERE id = :id';
-        
+
         $stmt = $this->conn->prepare($query);
 
         // Vincular datos
@@ -73,7 +79,7 @@ class EmpleadoModel {
         $stmt->bindParam(':dias_laborales', $data->dias_laborales);
         $stmt->bindParam(':pago_por_hora_extra', $data->pago_por_hora_extra);
 
-        if($stmt->execute()) {
+        if ($stmt->execute()) {
             return true;
         }
         return false;
@@ -82,15 +88,46 @@ class EmpleadoModel {
     /**
      * Elimina un empleado.
      */
-    public function delete($id) {
+    public function delete($id)
+    {
         $query = 'DELETE FROM ' . $this->table . ' WHERE id = :id';
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
 
-        if($stmt->execute()) {
+        if ($stmt->execute()) {
             return true;
         }
         return false;
     }
+
+
+    public function getByToken($token)
+    {
+        $query = 'SELECT * FROM empleados 
+              WHERE token = :token AND token_expiry > NOW() 
+              LIMIT 1';
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':token', $token);
+        $stmt->execute();
+
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function updateToken($id, $token, $expiry)
+    {
+        $query = 'UPDATE empleados 
+              SET token = :token, token_expiry = :expiry 
+              WHERE id = :id';
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':token', $token);
+        $stmt->bindParam(':expiry', $expiry);
+        $stmt->bindParam(':id', $id);
+
+        return $stmt->execute();
+    }
+
+
 }
 ?>

@@ -1,5 +1,5 @@
 // js/modules/attendance.js
-import { db, dbAction } from '../database.js'; // Se importa 'db'
+//import { db, dbAction } from '../database.js'; // Se importa 'db'
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
 import { openModal, closeModal, renderEmptyState } from '../ui.js';
 

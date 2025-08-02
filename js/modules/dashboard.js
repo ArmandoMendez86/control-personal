@@ -1,5 +1,5 @@
 // js/modules/dashboard.js
-import { db, dbAction } from '../database.js'; // Se importa 'db' de nuevo.
+//import { db, dbAction } from '../database.js'; // Se importa 'db' de nuevo.
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
 import { renderEmptyState } from '../ui.js';
 

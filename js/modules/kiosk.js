@@ -1,5 +1,5 @@
 // js/modules/kiosk.js
-import { db, dbAction } from '../database.js'; // Se importa 'db'
+//import { db, dbAction } from '../database.js'; // Se importa 'db'
 
 let kioskClockInterval;
 let html5QrCode;
@@ -70,23 +70,46 @@ async function handleTokenScanned(token) {
     try {
         const mainContent = document.getElementById('kiosk-main-content');
         mainContent.innerHTML = `<div class="flex justify-center items-center"><div class="loader"></div><p class="ml-4">Validando...</p></div>`;
-        const empleados = await dbAction('empleados', 'readonly', 'getAll');
-        const employee = empleados.find(e => e.token === token);
-        if (!employee) {
-            showKioskMessage("Token inválido o no encontrado.", true);
-            return;
+        
+        // Cambiamos a llamada al backend
+        const response = await dbAction('asistencias', 'readwrite', 'add', {
+            action: 'validate-token',
+            token: token
+        });
+
+        if (response.success && response.employee) {
+            currentScannedEmployee = response.employee;
+            showKioskActions();
+        } else {
+            showKioskMessage(response.message || "Token inválido o no encontrado.", true);
         }
-        const now = new Date();
-        const tokenExpiry = new Date(employee.tokenExpiry);
-        if (now > tokenExpiry) {
-            showKioskMessage("El código ha expirado. Por favor, genere uno nuevo.", true);
-            return;
-        }
-        currentScannedEmployee = employee;
-        showKioskActions();
     } catch (error) {
         console.error("Error al validar el token:", error);
         showKioskMessage("Ocurrió un error al validar. Intente de nuevo.", true);
+    }
+}
+
+async function handleKioskCheckInOut(isCheckIn) {
+    if (!currentScannedEmployee) return;
+    
+    try {
+        const mainContent = document.getElementById('kiosk-main-content');
+        mainContent.innerHTML = `<div class="flex justify-center items-center"><div class="loader"></div><p class="ml-4">Registrando...</p></div>`;
+        
+        // Cambiamos a llamada al backend
+        const response = await dbAction('asistencias', 'readwrite', 'add', {
+            action: isCheckIn ? 'check-in' : 'check-out',
+            empleadoId: currentScannedEmployee.id
+        });
+
+        if (response.success) {
+            showKioskMessage(response.message, false);
+        } else {
+            showKioskMessage(response.message || "Ocurrió un error al registrar.", true);
+        }
+    } catch (error) {
+        console.error("Error en registro de Kiosko:", error);
+        showKioskMessage("Ocurrió un error al registrar. Intente de nuevo.", true);
     }
 }
 
@@ -112,46 +135,7 @@ function showKioskActions() {
     document.getElementById('kiosk-actions-back').addEventListener('click', showScannerView);
 }
 
-async function handleKioskCheckInOut(isCheckIn) {
-    if (!currentScannedEmployee) return;
-    const empleadoId = currentScannedEmployee.id;
-    const todayStr = new Date().toISOString().split('T')[0];
-    try {
-        const transaction = db.transaction(['registrosAsistencia'], 'readwrite');
-        const store = transaction.objectStore('registrosAsistencia');
-        const index = store.index('empleado_fecha');
-        const request = index.getAll([empleadoId, todayStr]);
-        let message = '';
-        request.onsuccess = (e) => {
-            const registrosHoy = e.target.result;
-            let registro = registrosHoy.length > 0 ? registrosHoy[registrosHoy.length - 1] : null;
-            if (isCheckIn) {
-                if (registro && registro.horaEntrada && !registro.horaSalida) {
-                    message = `Ya tienes una entrada registrada sin salida.`;
-                } else {
-                    const nuevoRegistro = { empleadoId, fecha: todayStr, horaEntrada: new Date(), horaSalida: null };
-                    store.add(nuevoRegistro);
-                    message = `Entrada registrada a las ${nuevoRegistro.horaEntrada.toLocaleTimeString()}. ¡Que tengas un buen día!`;
-                }
-            } else {
-                if (!registro || !registro.horaEntrada || registro.horaSalida) {
-                    message = 'Debes registrar tu entrada primero o ya registraste tu salida.';
-                } else {
-                    registro.horaSalida = new Date();
-                    store.put(registro);
-                    message = `Salida registrada a las ${registro.horaSalida.toLocaleTimeString()}. ¡Hasta mañana!`;
-                }
-            }
-            showKioskMessage(message, false);
-        };
-        transaction.onerror = () => {
-             showKioskMessage("Ocurrió un error al registrar. Intente de nuevo.", true);
-        }
-    } catch (error) {
-        console.error("Error en registro de Kiosko:", error);
-        showKioskMessage("Ocurrió un error al registrar. Intente de nuevo.", true);
-    }
-}
+
 
 function showKioskMessage(message, isError = false) {
     const mainContent = document.getElementById('kiosk-main-content');
