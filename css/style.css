@@ -1,20 +1,40 @@
-/* Google Font */
+/* Estilo base con la fuente Inter */
 body {
     font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Transiciones para la interfaz */
-.sidebar {
-    transition: transform 0.3s ease-in-out;
+/* Transiciones suaves para la interfaz */
+.sidebar, .main-content {
+    transition: all 0.3s ease-in-out;
 }
-.main-content {
-    transition: margin-left 0.3s ease-in-out;
+
+/* Estilo del enlace activo en la barra lateral */
+.nav-link.active {
+    background-color: #1f2937; /* gray-800 */
+    color: white;
+    font-weight: 600;
+    position: relative;
+}
+
+/* Indicador visual para el enlace activo */
+.nav-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 60%;
+    width: 4px;
+    background-color: #3b82f6; /* blue-500 */
+    border-radius: 0 4px 4px 0;
 }
 
 /* Animación de carga */
 .loader {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
+    border: 4px solid #e5e7eb; /* gray-200 */
+    border-top: 4px solid #3b82f6; /* blue-500 */
     border-radius: 50%;
     width: 40px;
     height: 40px;
@@ -31,12 +51,19 @@ body {
 }
 .view.active {
     display: block;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Estilos para inputs deshabilitados */
 .report-input:disabled {
-    background-color: #f3f4f6;
+    background-color: #f3f4f6; /* gray-100 */
     cursor: not-allowed;
+    opacity: 0.7;
 }
 
 /* Efectos para tarjetas del Kiosko */
@@ -44,8 +71,8 @@ body {
     transition: transform 0.2s, box-shadow 0.2s;
 }
 .kiosk-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 /* Animación para error de PIN */
@@ -59,20 +86,58 @@ body {
   animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-/* ===== ESTILOS PARA LA BARRA DE SCROLL ===== */
+/* Estilos para la barra de scroll */
 .main-content main::-webkit-scrollbar {
   width: 8px;
 }
-
 .main-content main::-webkit-scrollbar-track {
   background: #f1f1f1;
 }
-
 .main-content main::-webkit-scrollbar-thumb {
-  background: #a8a8a8;
+  background: #d1d5db; /* gray-300 */
   border-radius: 4px;
 }
-
 .main-content main::-webkit-scrollbar-thumb:hover {
-  background: #555;
+  background: #9ca3af; /* gray-400 */
+}
+
+/* Estilo para la tarjeta de estado vacío */
+.empty-state-container {
+    background-color: white;
+    border-radius: 0.75rem; /* 12px */
+    padding: 2.5rem; /* 40px */
+    text-align: center;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    margin-top: 1.5rem; /* 24px */
+}
+
+.empty-state-icon {
+    font-size: 3rem; /* 48px */
+    color: #3b82f6; /* blue-500 */
+    margin-bottom: 1rem; /* 16px */
+    background-color: #eff6ff; /* blue-50 */
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-state-title {
+    font-size: 1.25rem; /* 20px */
+    font-weight: 600;
+    color: #111827; /* gray-900 */
+}
+
+.empty-state-message {
+    color: #6b7280; /* gray-500 */
+    margin-top: 0.5rem; /* 8px */
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.empty-state-action {
+    margin-top: 1.5rem; /* 24px */
 }

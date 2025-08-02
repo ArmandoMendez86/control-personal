@@ -1,25 +1,35 @@
 // js/modules/dashboard.js
-import { db, dbAction } from '../database.js';
+import { db, dbAction } from '../database.js'; // Se importa 'db' de nuevo.
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
+import { renderEmptyState } from '../ui.js';
 
-/**
- * Actualiza todos los componentes del dashboard (KPIs, actividad reciente).
- */
+// ... (El resto del archivo usa 'db' directamente, sin abrir/cerrar conexiones)
+
 export async function updateDashboard() {
     loadEmpleadosIntoSelect('checador-empleado');
     updateKPIs();
     updateRecentActivity();
 }
 
-/**
- * Actualiza las tarjetas de indicadores clave de rendimiento (KPIs).
- */
 async function updateKPIs() {
     try {
         const todayStr = getTodayDateString();
+        // Se usa 'db' directamente, que fue inicializada en main.js
         const tx = db.transaction(['empleados', 'registrosAsistencia'], 'readonly');
-        const empleados = await new Promise(r => tx.objectStore('empleados').getAll().onsuccess = e => r(e.target.result));
-        const asistenciasHoy = await new Promise(r => tx.objectStore('registrosAsistencia').index('fecha').getAll(todayStr).onsuccess = e => r(e.target.result));
+        const empleadosStore = tx.objectStore('empleados');
+        const asistenciaStore = tx.objectStore('registrosAsistencia');
+        
+        const empleados = await new Promise((resolve, reject) => {
+            const request = empleadosStore.getAll();
+            request.onsuccess = e => resolve(e.target.result);
+            request.onerror = e => reject(e.target.error);
+        });
+        
+        const asistenciasHoy = await new Promise((resolve, reject) => {
+            const request = asistenciaStore.index('fecha').getAll(todayStr);
+            request.onsuccess = e => resolve(e.target.result);
+            request.onerror = e => reject(e.target.error);
+        });
 
         const empleadosActivos = empleados.filter(e => e.activo);
         
@@ -28,11 +38,11 @@ async function updateKPIs() {
         const presentesIds = new Set();
         
         asistenciasHoy.forEach(a => {
-            if (!presentesIds.has(a.empleadoId)) {
+            if (a.horaEntrada && !presentesIds.has(a.empleadoId)) {
                 presentesIds.add(a.empleadoId);
                 presentes++;
                 const empleado = empleados.find(e => e.id === a.empleadoId);
-                if (empleado && a.horaEntrada) {
+                if (empleado && empleado.horarioEntrada) {
                     const horaEntradaOficial = new Date(`${a.fecha}T${empleado.horarioEntrada}`);
                     const horaEntradaReal = new Date(a.horaEntrada);
                     horaEntradaOficial.setMinutes(horaEntradaOficial.getMinutes() + 1);
@@ -51,46 +61,52 @@ async function updateKPIs() {
     }
 }
 
-/**
- * Actualiza la lista de actividad reciente.
- */
 async function updateRecentActivity() {
+    const actividadContainer = document.getElementById('lista-actividad');
     try {
         const allAsistencias = await dbAction('registrosAsistencia', 'readonly', 'getAll');
         const empleados = await dbAction('empleados', 'readonly', 'getAll');
         const empleadosMap = new Map(empleados.map(e => [e.id, e.nombreCompleto]));
 
-        const actividadUl = document.getElementById('lista-actividad');
-        actividadUl.innerHTML = '';
+        actividadContainer.innerHTML = '';
         
-        allAsistencias.sort((a,b) => {
+        const sortedActivities = allAsistencias.sort((a,b) => {
             const dateA = a.horaSalida ? new Date(a.horaSalida) : new Date(a.horaEntrada);
             const dateB = b.horaSalida ? new Date(b.horaSalida) : new Date(b.horaEntrada);
             return dateB - dateA;
-        }).slice(0, 10).forEach(a => {
-            const nombreEmpleado = empleadosMap.get(a.empleadoId);
-            if(nombreEmpleado) {
-                const li = document.createElement('li');
-                li.className = 'flex items-center justify-between text-sm';
-                let html;
-                if (a.horaSalida) {
-                     html = `<div class="flex items-center"><i class="fas fa-user-circle text-red-400 mr-3"></i><span><strong>${nombreEmpleado}</strong> registró salida</span></div><span class="text-gray-500">${new Date(a.horaSalida).toLocaleTimeString()}</span>`;
-                } else {
-                     html = `<div class="flex items-center"><i class="fas fa-user-circle text-green-400 mr-3"></i><span><strong>${nombreEmpleado}</strong> registró entrada</span></div><span class="text-gray-500">${new Date(a.horaEntrada).toLocaleTimeString()}</span>`;
-                }
-                li.innerHTML = html;
-                actividadUl.appendChild(li);
-            }
         });
+
+        if (sortedActivities.length === 0) {
+            renderEmptyState(
+                actividadContainer,
+                'fas fa-history',
+                'Sin Actividad Reciente',
+                'Los registros de entrada y salida de los empleados aparecerán aquí.'
+            );
+            actividadContainer.querySelector('.empty-state-container').classList.add('py-10');
+        } else {
+            sortedActivities.slice(0, 10).forEach(a => {
+                const nombreEmpleado = empleadosMap.get(a.empleadoId);
+                if(nombreEmpleado) {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between text-sm pb-3 border-b border-gray-100';
+                    let html;
+                    if (a.horaSalida) {
+                         html = `<div class="flex items-center"><i class="fas fa-sign-out-alt text-red-500 mr-4"></i><div><span class="font-semibold text-gray-800">${nombreEmpleado}</span><span class="text-gray-500"> registró salida</span></div></div><span class="text-gray-500 text-xs">${new Date(a.horaSalida).toLocaleTimeString()}</span>`;
+                    } else {
+                         html = `<div class="flex items-center"><i class="fas fa-sign-in-alt text-green-500 mr-4"></i><div><span class="font-semibold text-gray-800">${nombreEmpleado}</span><span class="text-gray-500"> registró entrada</span></div></div><span class="text-gray-500 text-xs">${new Date(a.horaEntrada).toLocaleTimeString()}</span>`;
+                    }
+                    li.innerHTML = html;
+                    actividadContainer.appendChild(li);
+                }
+            });
+        }
     } catch (error) {
         console.error("Error actualizando actividad reciente:", error);
+        renderEmptyState(actividadContainer, 'fas fa-exclamation-triangle', 'Error', 'No se pudo cargar la actividad reciente.');
     }
 }
 
-/**
- * Maneja el registro de entrada/salida desde el panel de administrador.
- * @param {boolean} isCheckIn - True si es entrada, false si es salida.
- */
 async function handleAdminCheckInOut(isCheckIn) {
     const empleadoId = parseInt(document.getElementById('checador-empleado').value);
     if (!empleadoId) {

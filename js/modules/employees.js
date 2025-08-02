@@ -1,7 +1,7 @@
 // js/modules/employees.js
 import { dbAction } from '../database.js';
 import { showToast } from '../utils.js';
-import { openModal, closeModal } from '../ui.js';
+import { openModal, closeModal, renderEmptyState } from '../ui.js';
 
 /**
  * Inicializa la vista de empleados, configurando listeners.
@@ -87,9 +87,11 @@ async function handleSaveEmpleado(e) {
 };
 
 async function loadEmpleadosTable() {
+    const container = document.getElementById('empleados-table-container');
     try {
         const empleados = await dbAction('empleados', 'readonly', 'getAll');
         
+        // Migración silenciosa de UUID si es necesario
         const updatePromises = [];
         empleados.forEach(emp => {
             if (!emp.uuid) {
@@ -98,58 +100,78 @@ async function loadEmpleadosTable() {
                 updatePromises.push(dbAction('empleados', 'readwrite', 'put', emp));
             }
         });
-
         if (updatePromises.length > 0) {
             await Promise.all(updatePromises);
-            loadEmpleadosTable(); 
+            loadEmpleadosTable(); // Recargar después de la migración
             return;
         }
 
-        const tbody = document.getElementById('tabla-empleados');
-        tbody.innerHTML = '';
         if (!empleados || empleados.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-gray-500">No hay empleados registrados.</td></tr>';
+            const buttonHTML = `<button id="btn-nuevo-empleado-vacio" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center mx-auto shadow-sm hover:shadow-lg transition-shadow"><i class="fas fa-plus mr-2"></i> Agregar Primer Empleado</button>`;
+            renderEmptyState(
+                container,
+                'fas fa-users-slash',
+                'No hay empleados registrados',
+                'Comienza por agregar a tu primer empleado para gestionar sus asistencias y nómina.',
+                buttonHTML
+            );
+            document.getElementById('btn-nuevo-empleado-vacio').addEventListener('click', () => openEmpleadoModal());
             return;
         }
-        empleados.forEach(emp => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${emp.nombreCompleto}</div></td>
-                <td class="px-6 py-4"><div class="text-sm text-gray-500">${emp.horarioEntrada} - ${emp.horarioSalida}</div></td>
-                <td class="px-6 py-4"><div class="text-sm text-gray-500">$${emp.pagoPorHoraExtra.toFixed(2)}</div></td>
-                <td class="px-6 py-4 text-right text-sm font-medium">
-                    <button class="share-btn text-blue-600 hover:text-blue-800" title="Compartir Tarjeta">
-                        <i class="fas fa-share-alt"></i>
-                    </button>
-                    <button class="card-btn text-white bg-green-600 hover:bg-green-700 font-bold py-1 px-3 rounded-lg text-xs ml-4" title="Generar Tarjeta Digital">
-                        <i class="fas fa-id-card"></i> Tarjeta
-                    </button>
-                    <button class="edit-btn text-indigo-600 hover:text-indigo-900 ml-4" title="Editar Empleado"><i class="fas fa-edit"></i></button>
-                    <button class="delete-btn text-red-600 hover:text-red-900 ml-4" title="Eliminar Empleado"><i class="fas fa-trash"></i></button>
-                </td>`;
-            
-            tr.querySelector('.share-btn').addEventListener('click', () => handleShare(emp));
-            
-            tr.querySelector('.card-btn').addEventListener('click', () => {
-                if (!emp.uuid) {
-                    showToast('Error: No se pudo generar un identificador seguro para este empleado.', 'error');
-                    return;
-                }
-                window.open(`tarjeta-digital.html?uuid=${emp.uuid}`, '_blank', 'width=450,height=600,scrollbars=no,resizable=no');
-            });
 
-            tr.querySelector('.edit-btn').addEventListener('click', () => openEmpleadoModal(emp));
-            tr.querySelector('.delete-btn').addEventListener('click', async () => {
-                if (confirm('¿Seguro que desea eliminar a este empleado? Esta acción no se puede deshacer.')) {
-                    await dbAction('empleados', 'readwrite', 'delete', emp.id);
-                    showToast('Empleado eliminado.', 'success');
-                    loadEmpleadosTable();
-                }
-            });
-            tbody.appendChild(tr);
+        let tableHTML = `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Horario</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago H. Extra</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">`;
+
+        empleados.forEach(emp => {
+            tableHTML += `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${emp.nombreCompleto}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${emp.horarioEntrada} - ${emp.horarioSalida}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">$${emp.pagoPorHoraExtra.toFixed(2)}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="share-btn text-gray-400 hover:text-blue-600 p-2 rounded-full" title="Compartir Tarjeta" data-id="${emp.id}"><i class="fas fa-share-alt"></i></button>
+                        <button class="card-btn text-gray-400 hover:text-green-600 p-2 rounded-full" title="Generar Tarjeta Digital" data-id="${emp.id}"><i class="fas fa-id-card"></i></button>
+                        <button class="edit-btn text-gray-400 hover:text-indigo-600 p-2 rounded-full" title="Editar Empleado" data-id="${emp.id}"><i class="fas fa-edit"></i></button>
+                        <button class="delete-btn text-gray-400 hover:text-red-600 p-2 rounded-full" title="Eliminar Empleado" data-id="${emp.id}"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
         });
+        
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+
+        // Add event listeners
+        container.querySelectorAll('.share-btn').forEach(btn => btn.addEventListener('click', () => handleShare(empleados.find(e => e.id === parseInt(btn.dataset.id)))));
+        container.querySelectorAll('.card-btn').forEach(btn => btn.addEventListener('click', () => {
+            const emp = empleados.find(e => e.id === parseInt(btn.dataset.id));
+            if (!emp.uuid) {
+                showToast('Error: No se pudo generar un identificador seguro para este empleado.', 'error');
+                return;
+            }
+            window.open(`tarjeta-digital.html?uuid=${emp.uuid}`, '_blank', 'width=450,height=650,scrollbars=no,resizable=no');
+        }));
+        container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => openEmpleadoModal(empleados.find(e => e.id === parseInt(btn.dataset.id)))));
+        container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async () => {
+            const emp = empleados.find(e => e.id === parseInt(btn.dataset.id));
+            if (confirm(`¿Seguro que desea eliminar a ${emp.nombreCompleto}? Esta acción no se puede deshacer.`)) {
+                await dbAction('empleados', 'readwrite', 'delete', emp.id);
+                showToast('Empleado eliminado.', 'success');
+                loadEmpleadosTable();
+            }
+        }));
+
     } catch (error) {
         console.error("Error cargando tabla de empleados:", error);
+        renderEmptyState(container, 'fas fa-exclamation-triangle', 'Error', 'No se pudo cargar la lista de empleados.');
     }
 };
 
@@ -164,20 +186,14 @@ async function handleShare(emp) {
     try {
         if (navigator.share) {
             await navigator.share(shareData);
-            console.log('URL compartida exitosamente');
         } else {
             throw new Error('Web Share API not supported.');
         }
     } catch (err) {
-        console.warn('Error al usar Web Share API, usando fallback:', err);
-        const tempInput = document.createElement('input');
-        tempInput.style.position = 'absolute';
-        tempInput.style.left = '-9999px';
-        tempInput.value = shareUrl;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        showToast('¡Enlace copiado al portapapeles!', 'success');
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            showToast('¡Enlace copiado al portapapeles!', 'success');
+        }).catch(err => {
+            showToast('Error al copiar el enlace.', 'error');
+        });
     }
 }

@@ -1,10 +1,10 @@
 // js/modules/attendance.js
-import { db, dbAction } from '../database.js';
+import { db, dbAction } from '../database.js'; // Se importa 'db'
 import { showToast, getTodayDateString, loadEmpleadosIntoSelect } from '../utils.js';
-import { openModal, closeModal } from '../ui.js';
+import { openModal, closeModal, renderEmptyState } from '../ui.js';
 
 /**
- * Inicializa la vista de asistencias, configurando listeners.
+ * Initializes the attendance view, setting up listeners.
  */
 export function initAttendanceView() {
     const searchBtn = document.getElementById('btn-buscar-asistencias');
@@ -73,6 +73,7 @@ async function handleSaveAsistencia(e) {
 };
 
 async function loadAsistenciasTable() {
+    const container = document.getElementById('asistencias-table-container');
     try {
         const fecha = document.getElementById('filtro-fecha-asistencia').value;
         const empleadoId = parseInt(document.getElementById('filtro-empleado-asistencia').value);
@@ -97,40 +98,64 @@ async function loadAsistenciasTable() {
             asistencias = await new Promise(r => asistenciaStore.getAll().onsuccess = e => r(e.target.result));
         }
         
-        const tbody = document.getElementById('tabla-asistencias');
-        tbody.innerHTML = '';
         if (!asistencias || asistencias.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center p-4 text-gray-500">No se encontraron registros con los filtros seleccionados.</td></tr>';
+            renderEmptyState(
+                container,
+                'fas fa-calendar-times',
+                'No se encontraron registros',
+                'Intenta cambiar la fecha, seleccionar otro empleado o registrar una nueva asistencia.'
+            );
             return;
         }
 
+        let tableHTML = `
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entrada</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salida</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">`;
+        
         asistencias.sort((a, b) => {
             const dateA = a.horaEntrada ? new Date(a.horaEntrada) : new Date(a.fecha);
             const dateB = b.horaEntrada ? new Date(b.horaEntrada) : new Date(b.fecha);
             return dateB - dateA;
         }).forEach(a => {
-            const tr = document.createElement('tr');
             const nombreEmpleado = empleadosMap.get(a.empleadoId) || 'Empleado Desconocido';
-            tr.innerHTML = `
-                <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${nombreEmpleado}</div></td>
-                <td class="px-6 py-4"><div class="text-sm text-gray-500">${a.fecha}</div></td>
-                <td class="px-6 py-4"><div class="text-sm text-gray-500">${a.horaEntrada ? new Date(a.horaEntrada).toLocaleTimeString() : '---'}</div></td>
-                <td class="px-6 py-4"><div class="text-sm text-gray-500">${a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString() : '---'}</div></td>
-                <td class="px-6 py-4 text-right text-sm font-medium">
-                    <button class="edit-btn text-indigo-600 hover:text-indigo-900"><i class="fas fa-edit"></i></button>
-                    <button class="delete-btn text-red-600 hover:text-red-900 ml-4"><i class="fas fa-trash"></i></button>
-                </td>`;
-            tr.querySelector('.edit-btn').addEventListener('click', () => openAsistenciaModal(a, nombreEmpleado));
-            tr.querySelector('.delete-btn').addEventListener('click', async () => {
-                if (confirm('¿Seguro que desea eliminar este registro de asistencia?')) {
-                    await dbAction('registrosAsistencia', 'readwrite', 'delete', a.id);
-                    showToast('Registro eliminado.', 'success');
-                    loadAsistenciasTable();
-                }
-            });
-            tbody.appendChild(tr);
+            tableHTML += `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${nombreEmpleado}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${a.fecha}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${a.horaEntrada ? new Date(a.horaEntrada).toLocaleTimeString() : '---'}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${a.horaSalida ? new Date(a.horaSalida).toLocaleTimeString() : '---'}</div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="edit-btn text-gray-400 hover:text-indigo-600 p-2 rounded-full" data-id="${a.id}" data-nombre="${nombreEmpleado}"><i class="fas fa-edit"></i></button>
+                        <button class="delete-btn text-gray-400 hover:text-red-600 p-2 rounded-full" data-id="${a.id}"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`;
         });
+        tableHTML += `</tbody></table>`;
+        container.innerHTML = tableHTML;
+
+        container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => {
+            const asistencia = asistencias.find(a => a.id === parseInt(btn.dataset.id));
+            openAsistenciaModal(asistencia, btn.dataset.nombre);
+        }));
+        container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', async () => {
+            if (confirm('¿Seguro que desea eliminar este registro de asistencia?')) {
+                await dbAction('registrosAsistencia', 'readwrite', 'delete', parseInt(btn.dataset.id));
+                showToast('Registro eliminado.', 'success');
+                loadAsistenciasTable();
+            }
+        }));
+
     } catch (error) {
         console.error("Error cargando tabla de asistencias:", error);
+        renderEmptyState(container, 'fas fa-exclamation-triangle', 'Error', 'No se pudo cargar la lista de asistencias.');
     }
 };

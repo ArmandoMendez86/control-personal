@@ -1,7 +1,7 @@
 // js/modules/reports.js
-import { db, dbAction } from '../database.js';
+import { dbAction } from '../database.js';
 import { showToast, getWeekNumber, getDatesOfWeek } from '../utils.js';
-import { openModal, closeModal } from '../ui.js';
+import { openModal, closeModal, renderEmptyState } from '../ui.js';
 
 let currentReportData = [];
 let currentReportConcepts = [];
@@ -26,6 +26,7 @@ export function initReportsView() {
         mutations.forEach((mutation) => {
             if (mutation.attributeName === 'class' && mutation.target.classList.contains('active')) {
                 setCurrentWeek();
+                initializeReportView();
             }
         });
     });
@@ -33,6 +34,17 @@ export function initReportsView() {
     if (reportsView) {
         observer.observe(reportsView, { attributes: true });
     }
+}
+
+function initializeReportView() {
+    const container = document.getElementById('reporte-container');
+    renderEmptyState(
+        container,
+        'fas fa-file-invoice-dollar',
+        'Reporte de Pre-Nómina',
+        'Seleccione una semana y haga clic en "Generar Reporte" para ver el desglose de pagos.',
+    );
+    document.getElementById('btn-exportar-csv').classList.add('hidden');
 }
 
 function setCurrentWeek() {
@@ -54,66 +66,39 @@ async function generatePayrollReport() {
     
     const container = document.getElementById('reporte-container');
     container.innerHTML = '<div class="flex justify-center items-center p-8"><div class="loader"></div><p class="ml-4">Generando reporte...</p></div>';
-    const periodo = weekInput;
-
+    
     try {
-        const datesOfWeek = getDatesOfWeek(periodo);
-        const tx = db.transaction(['empleados', 'registrosAsistencia', 'conceptos', 'transaccionesNomina', 'justificaciones'], 'readonly');
-        const empleados = await new Promise(r => tx.objectStore('empleados').getAll().onsuccess = e => r(e.target.result));
-        const conceptos = await new Promise(r => tx.objectStore('conceptos').getAll().onsuccess = e => r(e.target.result));
-        const asistenciaStore = tx.objectStore('registrosAsistencia');
-        const transaccionesStore = tx.objectStore('transaccionesNomina');
-        const justificacionesStore = tx.objectStore('justificaciones');
-        
-        const reportData = [];
-        for (const empleado of empleados.filter(e => e.activo)) {
-            let horasExtrasTotales = 0;
-            let fechasDeFaltas = [];
-
-            for (let i = 0; i < empleado.diasLaborales; i++) {
-                const fecha = datesOfWeek[i];
-                const registrosDelDia = await new Promise(r => asistenciaStore.index('empleado_fecha').getAll([empleado.id, fecha]).onsuccess = e => r(e.target.result));
-                
-                if (registrosDelDia.length > 0) {
-                    const ultimoRegistro = registrosDelDia[registrosDelDia.length - 1];
-                    if (ultimoRegistro.horaSalida) {
-                        const horaSalidaOficial = new Date(`${ultimoRegistro.fecha}T${empleado.horarioSalida}`);
-                        const horaSalidaReal = new Date(ultimoRegistro.horaSalida);
-                        if (horaSalidaReal > horaSalidaOficial) {
-                            horasExtrasTotales += (horaSalidaReal - horaSalidaOficial) / 3600000;
-                        }
-                    }
-                } else {
-                    const justificacion = await new Promise(r => justificacionesStore.index('empleado_fecha').get([empleado.id, fecha]).onsuccess = e => r(e.target.result));
-                    fechasDeFaltas.push({fecha, justificada: !!justificacion, motivo: justificacion ? justificacion.motivo : ''});
-                }
-            }
-            
-            const transacciones = await new Promise(r => transaccionesStore.index('empleado_periodo_concepto').getAll(IDBKeyRange.bound([empleado.id, periodo, 0], [empleado.id, periodo, Infinity])).onsuccess = e => r(e.target.result));
-            const transaccionesMap = transacciones.reduce((acc, t) => { acc[t.conceptoId] = t.monto; return acc; }, {});
-
-            reportData.push({ 
-                empleado, 
-                fechasDeFaltas,
-                horasExtras: horasExtrasTotales,
-                transacciones: transaccionesMap 
-            });
+        const response = await fetch(`http://localhost/control-personal/api/reportes?periodo=${weekInput}`);
+        if (!response.ok) {
+            throw new Error('La respuesta de la API de reportes no fue exitosa.');
         }
+        const reportData = await response.json();
+        const conceptos = await dbAction('conceptos', 'readonly', 'getAll');
         
         currentReportData = reportData;
         currentReportConcepts = conceptos.filter(c => c.activo);
-        renderReportTable(currentReportData, currentReportConcepts, periodo);
+        renderReportTable(currentReportData, currentReportConcepts, weekInput);
         document.getElementById('btn-exportar-csv').classList.remove('hidden');
+
     } catch (error) {
         console.error("Error generando el reporte:", error);
         showToast("Error al generar el reporte.", "error");
-        container.innerHTML = '<div class="p-8 text-center text-red-500">Ocurrió un error al generar el reporte.</div>';
+        renderEmptyState(container, 'fas fa-exclamation-triangle', 'Error', 'Ocurrió un error al generar el reporte.');
     }
 };
 
 function renderReportTable(data, conceptos, periodo) {
     const container = document.getElementById('reporte-container');
+    container.innerHTML = '';
     
+    if (data.length === 0) {
+        renderEmptyState(container, 'fas fa-users-slash', 'No hay empleados activos', 'No se puede generar un reporte sin empleados activos.');
+        return;
+    }
+
+    const tableWrapper = document.createElement('div');
+    tableWrapper.className = 'bg-white shadow-md rounded-xl overflow-hidden';
+
     let tableHTML = `<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200" id="report-table">
         <thead class="bg-gray-50"><tr>
             <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Persona</th>
@@ -125,34 +110,34 @@ function renderReportTable(data, conceptos, periodo) {
         <tbody class="bg-white divide-y divide-gray-200">`;
 
     data.forEach(item => {
-        const pagoHorasExtras = item.horasExtras * item.empleado.pagoPorHoraExtra;
-        const faltasNoJustificadas = item.fechasDeFaltas.filter(f => !f.justificada).length;
-        const faltasJustificadas = item.fechasDeFaltas.length - faltasNoJustificadas;
-        const sueldoDiario = item.empleado.diasLaborales > 0 ? item.empleado.sueldoSemanal / item.empleado.diasLaborales : 0;
+        const pagoHorasExtras = parseFloat(item.horas_extras_totales) * parseFloat(item.pago_por_hora_extra);
+        const faltasNoJustificadas = item.faltas.filter(f => !f.justificada).length;
+        const faltasJustificadas = item.faltas.length - faltasNoJustificadas;
+        const sueldoDiario = item.dias_laborales > 0 ? parseFloat(item.sueldo_semanal) / item.dias_laborales : 0;
         const descuentoPorFaltas = faltasNoJustificadas * sueldoDiario;
 
-        tableHTML += `<tr data-empleado-id="${item.empleado.id}">
-            <td class="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" data-value="${item.empleado.nombreCompleto}">${item.empleado.nombreCompleto}</td>
-            <td class="px-2 py-2 whitespace-nowrap text-sm text-gray-500" data-value="${item.empleado.sueldoSemanal}">$${item.empleado.sueldoSemanal.toFixed(2)}</td>
+        tableHTML += `<tr data-empleado-id="${item.empleado_id}">
+            <td class="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" data-value="${item.nombre_completo}">${item.nombre_completo}</td>
+            <td class="px-2 py-2 whitespace-nowrap text-sm text-gray-500" data-value="${item.sueldo_semanal}">$${parseFloat(item.sueldo_semanal).toFixed(2)}</td>
             <td class="px-2 py-2 whitespace-nowrap text-sm text-red-500 font-bold" data-value="${-descuentoPorFaltas}">
-                ${item.fechasDeFaltas.length > 0 ? `<button class="faltas-btn bg-red-100 text-red-700 px-2 py-1 rounded-full hover:bg-red-200">
+                ${item.faltas.length > 0 ? `<button class="faltas-btn bg-red-100 text-red-700 px-2 py-1 rounded-full hover:bg-red-200">
                     ${faltasNoJustificadas} (-$${descuentoPorFaltas.toFixed(2)}) 
                     <span class="text-green-600 font-normal">${faltasJustificadas > 0 ? ` / ${faltasJustificadas} just.` : ''}</span>
                 </button>` : '0'}
             </td>
             <td class="px-2 py-2 whitespace-nowrap text-sm text-green-600" data-value="${pagoHorasExtras}">
-                <div>${item.horasExtras.toFixed(2)} hrs</div>
+                <div>${parseFloat(item.horas_extras_totales).toFixed(2)} hrs</div>
                 <div class="font-bold">$${pagoHorasExtras.toFixed(2)}</div>
             </td>`;
         conceptos.forEach(c => {
             const monto = item.transacciones[c.id] || 0;
             const isChecked = monto > 0;
-            const isReadOnly = c.montoFijo > 0;
+            const isReadOnly = c.monto_fijo > 0;
             const textColor = c.tipo === 'PERCEPCION' ? 'text-green-700' : 'text-red-700';
             
             tableHTML += `<td class="px-1 py-1" data-value="${c.tipo === 'PERCEPCION' ? monto : -monto}"><div class="flex items-center space-x-1">
-                <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 concept-checkbox" data-concepto-id="${c.id}" ${isChecked ? 'checked' : ''}>
-                <input type="number" class="w-24 p-1 border rounded-md report-input font-semibold ${textColor}" data-concepto-id="${c.id}" data-monto-fijo="${c.montoFijo}" data-tipo="${c.tipo}" value="${monto.toFixed(2)}" ${!isChecked || isReadOnly ? 'disabled' : ''} ${isReadOnly ? 'bg-gray-100' : ''}>
+                <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 concept-checkbox" data-concepto-id="${c.id}" ${isChecked ? 'checked' : ''}>
+                <input type="number" class="w-24 p-1 border rounded-md report-input font-semibold ${textColor}" data-concepto-id="${c.id}" data-monto-fijo="${c.monto_fijo}" data-tipo="${c.tipo}" value="${parseFloat(monto).toFixed(2)}" ${!isChecked || isReadOnly ? 'disabled' : ''} ${isReadOnly ? 'bg-gray-100' : ''}>
             </div></td>`;
         });
         tableHTML += `<td class="pago-semana px-2 py-2 whitespace-nowrap text-sm font-bold text-gray-800" data-value="0"></td></tr>`;
@@ -167,9 +152,15 @@ function renderReportTable(data, conceptos, periodo) {
         const textColor = c.tipo === 'PERCEPCION' ? 'text-green-700' : 'text-red-700';
         tableHTML += `<td id="total-concepto-${c.id}" class="px-2 py-3 ${textColor}"></td>`
     });
-    tableHTML += `<td id="gran-total" class="px-2 py-3 text-lg"></td></tr></tfoot></table></div>
-        <div class="p-4 flex justify-end"><button id="btn-guardar-nomina" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg">Guardar Cambios</button></div>`;
-    container.innerHTML = tableHTML;
+    tableHTML += `<td id="gran-total" class="px-2 py-3 text-lg"></td></tr></tfoot></table></div>`;
+    
+    tableWrapper.innerHTML = tableHTML;
+    container.appendChild(tableWrapper);
+
+    const actionsWrapper = document.createElement('div');
+    actionsWrapper.className = 'p-4 flex justify-end bg-white rounded-b-xl';
+    actionsWrapper.innerHTML = `<button id="btn-guardar-nomina" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Guardar Cambios</button>`;
+    tableWrapper.appendChild(actionsWrapper);
     
     container.querySelectorAll('.concept-checkbox').forEach(cb => cb.addEventListener('change', handleConceptCheckboxChange));
     container.querySelectorAll('.report-input').forEach(input => {
@@ -178,9 +169,7 @@ function renderReportTable(data, conceptos, periodo) {
             const cell = inputEl.closest('td');
             const tipo = inputEl.dataset.tipo;
             const monto = parseFloat(inputEl.value) || 0;
-            
             cell.dataset.value = tipo === 'PERCEPCION' ? monto : -monto;
-            
             updateRowTotal(inputEl.closest('tr'));
         });
     });
@@ -188,7 +177,7 @@ function renderReportTable(data, conceptos, periodo) {
         const row = e.target.closest('tr');
         const empleadoId = parseInt(row.dataset.empleadoId);
         const empleadoNombre = row.cells[0].textContent;
-        const faltasData = data.find(d => d.empleado.id === empleadoId).fechasDeFaltas;
+        const faltasData = data.find(d => d.empleado_id === empleadoId).faltas;
         openJustificarModal(empleadoId, empleadoNombre, faltasData);
     }));
     document.getElementById('btn-guardar-nomina').addEventListener('click', () => savePayrollChanges(periodo));
@@ -223,10 +212,11 @@ function handleConceptCheckboxChange(e) {
 function updateRowTotal(row) {
     if (!row) return;
     let pagoNeto = 0;
-    row.querySelectorAll('td[data-value]:not(.pago-semana)').forEach(cell => {
-        pagoNeto += parseFloat(cell.dataset.value) || 0;
+    row.querySelectorAll('td[data-value]').forEach(cell => {
+        if (!cell.classList.contains('pago-semana') && !isNaN(parseFloat(cell.dataset.value))) {
+            pagoNeto += parseFloat(cell.dataset.value);
+        }
     });
-
     const pagoSemanaCell = row.querySelector('.pago-semana');
     pagoSemanaCell.textContent = `$${pagoNeto.toFixed(2)}`;
     pagoSemanaCell.dataset.value = pagoNeto;
@@ -241,60 +231,44 @@ function updateTableTotals() {
 
     table.querySelectorAll('tbody tr').forEach(row => {
         row.querySelectorAll('td').forEach((cell, index) => {
-            if (index > 0) {
-                const value = parseFloat(cell.dataset.value) || 0;
-                totals[index] += value;
+            if (index > 0 && !isNaN(parseFloat(cell.dataset.value))) {
+                totals[index] += parseFloat(cell.dataset.value);
             }
         });
     });
 
     headers.forEach((header, index) => {
         if (index > 0) {
-            const totalCellId = table.querySelector(`tfoot td:nth-child(${index + 1})`)?.id;
-            if (totalCellId) {
-                const totalCell = document.getElementById(totalCellId);
-                if (totalCell) totalCell.textContent = `$${totals[index].toFixed(2)}`;
-            }
+            const totalCell = table.querySelector(`tfoot td:nth-child(${index + 1})`);
+            if (totalCell) totalCell.textContent = `$${totals[index].toFixed(2)}`;
         }
     });
 };
 
 async function savePayrollChanges(periodo) {
     const rows = document.querySelectorAll('#report-table tbody tr');
-    const tx = db.transaction(['transaccionesNomina'], 'readwrite');
-    const store = tx.objectStore('transaccionesNomina');
-    const index = store.index('empleado_periodo_concepto');
-    const promises = [];
-
+    const transacciones = [];
     rows.forEach(row => {
         const empleadoId = parseInt(row.dataset.empleadoId);
         row.querySelectorAll('.report-input').forEach(input => {
-            const conceptoId = parseInt(input.dataset.conceptoId);
-            const monto = parseFloat(input.value) || 0;
-            const promise = new Promise((resolve, reject) => {
-                const request = index.get([empleadoId, periodo, conceptoId]);
-                request.onerror = reject;
-                request.onsuccess = () => {
-                    const existing = request.result;
-                    if (existing) {
-                        if (monto > 0) {
-                            existing.monto = monto;
-                            store.put(existing).onsuccess = resolve;
-                        } else {
-                            store.delete(existing.id).onsuccess = resolve;
-                        }
-                    } else if (monto > 0) {
-                        store.add({ empleadoId, periodo, conceptoId, monto }).onsuccess = resolve;
-                    } else {
-                        resolve();
-                    }
-                };
+            transacciones.push({
+                empleado_id: empleadoId,
+                concepto_id: parseInt(input.dataset.conceptoId),
+                monto: parseFloat(input.value) || 0
             });
-            promises.push(promise);
         });
     });
-    await Promise.all(promises);
-    showToast('Cambios en la nómina guardados.', 'success');
+
+    try {
+        await fetch('http://localhost/control-personal/api/transacciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ periodo, transacciones })
+        });
+        showToast('Cambios en la nómina guardados.', 'success');
+    } catch (error) {
+        showToast('Error al guardar cambios en la nómina.', 'error');
+    }
 }
 
 function openJustificarModal(empleadoId, empleadoNombre, faltasData) {
@@ -332,51 +306,26 @@ function openJustificarModal(empleadoId, empleadoNombre, faltasData) {
 async function handleSaveJustificaciones(e) {
     e.preventDefault();
     const empleadoId = parseInt(document.getElementById('justificar-empleado-id').value);
-    const tx = db.transaction(['justificaciones'], 'readwrite');
-    const store = tx.objectStore('justificaciones');
-    const index = store.index('empleado_fecha');
-    const promises = [];
-
+    const faltas = [];
     document.querySelectorAll('#lista-faltas .justificacion-cb').forEach(cb => {
-        const fecha = cb.dataset.fecha;
-        const motivo = document.getElementById(`motivo-${fecha}`).value;
-        
-        const promise = new Promise((resolve, reject) => {
-            const request = index.get([empleadoId, fecha]);
-            request.onerror = reject;
-            request.onsuccess = e => {
-                const existing = e.target.result;
-                if (cb.checked) {
-                    const data = { empleadoId, fecha, motivo: motivo || 'Justificado' };
-                    if (existing) {
-                        data.id = existing.id;
-                        store.put(data).onsuccess = resolve;
-                    } else {
-                        store.add(data).onsuccess = resolve;
-                    }
-                } else {
-                    if (existing) {
-                        store.delete(existing.id).onsuccess = resolve;
-                    } else {
-                        resolve();
-                    }
-                }
-            };
+        faltas.push({
+            fecha: cb.dataset.fecha,
+            justificada: cb.checked,
+            motivo: document.getElementById(`motivo-${cb.dataset.fecha}`).value
         });
-        promises.push(promise);
     });
 
     try {
-        await Promise.all(promises);
-        tx.oncomplete = () => {
-            showToast('Justificaciones guardadas.', 'success');
-            closeModal();
-            generatePayrollReport();
-        }
+        await fetch('http://localhost/control-personal/api/justificaciones', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ empleado_id: empleadoId, faltas: faltas })
+        });
+        showToast('Justificaciones guardadas.', 'success');
+        closeModal();
+        generatePayrollReport();
     } catch (error) {
-        console.error("Error guardando justificaciones:", error);
         showToast("Error al guardar justificaciones.", "error");
-        tx.abort();
     }
 };
 
@@ -385,29 +334,16 @@ function exportReportToCSV() {
         showToast("No hay datos para exportar.", "warning");
         return;
     }
-
     let csvContent = "data:text/csv;charset=utf-8,";
-    
-    const headers = Array.from(document.querySelectorAll('#report-table thead th')).map(th => `"${th.textContent}"`);
+    const headers = Array.from(document.querySelectorAll('#report-table thead th')).map(th => `"${th.textContent.trim()}"`);
     csvContent += headers.join(",") + "\r\n";
-
     document.querySelectorAll('#report-table tbody tr').forEach(row => {
         const csvRow = [];
-        row.querySelectorAll('td').forEach((cell, index) => {
-            if (index === 2) {
-                const faltasBtn = cell.querySelector('.faltas-btn');
-                csvRow.push(faltasBtn ? `"${faltasBtn.textContent.trim().replace(/\s+/g, ' ')}"` : "0");
-            } else if (index === 3) {
-                csvRow.push(parseFloat(cell.dataset.value).toFixed(2));
-            } else if (cell.querySelector('.report-input')) {
-                csvRow.push(parseFloat(cell.querySelector('.report-input').value).toFixed(2));
-            } else {
-                 csvRow.push(`"${cell.textContent}"`);
-            }
+        row.querySelectorAll('td').forEach((cell) => {
+            csvRow.push(`"${cell.textContent.trim().replace(/"/g, '""')}"`);
         });
         csvContent += csvRow.join(",") + "\r\n";
     });
-
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);

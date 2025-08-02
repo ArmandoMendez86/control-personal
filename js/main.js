@@ -1,7 +1,7 @@
 // js/main.js
 
 import { initDB, dbAction } from './database.js';
-import { renderLayout, openModal, closeModal } from './ui.js';
+import { renderLayout, closeModal } from './ui.js';
 import { showToast } from './utils.js';
 import { initKioskMode, stopKioskMode } from './modules/kiosk.js';
 import { updateDashboard, handleAdminCheckIn, handleAdminCheckOut } from './modules/dashboard.js';
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initDB();
         renderLayout();
-        await seedInitialData();
+        await checkBackendData();
         setupEventListeners();
         loadKioskView();
     } catch (error) {
@@ -23,6 +23,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+/**
+ * Verifica la conexión con el backend y si hay datos iniciales.
+ */
+async function checkBackendData() {
+    try {
+        const empleados = await dbAction('empleados', 'readonly', 'getAll');
+        if (empleados.length === 0) {
+            console.log('La base de datos del servidor está vacía.');
+            showToast('Backend conectado, pero sin datos de empleados.', 'info');
+        } else {
+            console.log('Conexión con backend exitosa. Empleados cargados.');
+        }
+    } catch (error) {
+        console.error("Error al verificar datos del backend:", error);
+        showToast('Error conectando al backend.', 'error');
+    }
+}
+
+/**
+ * Configura todos los event listeners de la aplicación.
+ */
 function setupEventListeners() {
     window.addEventListener('hashchange', () => navigateTo(window.location.hash));
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -56,11 +77,14 @@ function setupEventListeners() {
     initReportsView();
 }
 
+/**
+ * Navega entre las diferentes vistas del panel de administrador.
+ */
 function navigateTo(hash) {
     hash = hash || '#dashboard';
     
     document.querySelectorAll('#admin-view .view').forEach(view => view.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('bg-gray-700'));
+    document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
     
     const viewId = hash.substring(1);
     const activeView = document.getElementById(viewId);
@@ -68,7 +92,7 @@ function navigateTo(hash) {
 
     if (activeView && activeLink) {
         activeView.classList.add('active');
-        activeLink.classList.add('bg-gray-700');
+        activeLink.classList.add('active');
         document.getElementById('view-title').textContent = activeLink.textContent.trim();
         window.location.hash = hash;
         
@@ -80,12 +104,18 @@ function navigateTo(hash) {
     }
 }
 
+/**
+ * Carga la vista de Kiosko.
+ */
 function loadKioskView() {
     document.getElementById('kiosk-view').classList.remove('hidden');
     document.getElementById('admin-view').classList.add('hidden');
     initKioskMode();
 }
 
+/**
+ * Maneja el inicio de sesión del administrador.
+ */
 function handleAdminLogin() {
     const password = prompt("Por favor, ingrese la contraseña de administrador:");
     if (password === "admin") {
@@ -98,38 +128,9 @@ function handleAdminLogin() {
     }
 }
 
+/**
+ * Maneja el cierre de sesión del administrador.
+ */
 function handleAdminLogout() {
     loadKioskView();
-}
-
-async function seedInitialData() {
-    try {
-        const count = await dbAction('empleados', 'readonly', 'count');
-        if (count > 0) return;
-
-        console.log('Base de datos vacía, insertando datos de prueba.');
-        
-        const empleados = [
-            { id: 1, nombreCompleto: 'Dylan', sueldoSemanal: 2350.00, diasLaborales: 6, horarioEntrada: '10:00', horarioSalida: '20:00', pagoPorHoraExtra: 50.00, activo: true, pin: '1234', uuid: crypto.randomUUID(), token: null, tokenExpiry: null },
-            { id: 2, nombreCompleto: 'Alejandro C.', sueldoSemanal: 2350.00, diasLaborales: 6, horarioEntrada: '10:00', horarioSalida: '20:00', pagoPorHoraExtra: 50.00, activo: true, pin: '1111', uuid: crypto.randomUUID(), token: null, tokenExpiry: null },
-        ];
-        const conceptos = [
-            { id: 1, nombre: 'Cont. Descarga', tipo: 'PERCEPCION', montoFijo: 0, activo: true },
-            { id: 2, nombre: 'Bono Limpieza', tipo: 'PERCEPCION', montoFijo: 150, activo: true },
-            { id: 3, nombre: 'Préstamo', tipo: 'DEDUCCION', montoFijo: 0, activo: true },
-        ];
-
-        for (const emp of empleados) {
-            await dbAction('empleados', 'readwrite', 'add', emp);
-        }
-        for (const con of conceptos) {
-            await dbAction('conceptos', 'readwrite', 'add', con);
-        }
-
-        showToast('Datos de prueba cargados.', 'info');
-
-    } catch (error) {
-        console.error("Error al cargar datos de prueba:", error);
-        showToast('Error cargando datos de prueba.', 'error');
-    }
 }
